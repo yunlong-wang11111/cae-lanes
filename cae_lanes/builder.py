@@ -181,3 +181,45 @@ def _cli():
 
 if __name__ == '__main__':
     _cli()
+
+
+def export_assembly(parts, out_dir, stem, stl_tolerance=0.05):
+    """装配导出: 每零件一个 STL + manifest(asm.json), view3d 查看器支持逐零件显隐。
+    parts: [(零件名, part对象, pos_mm, rot_deg, color)] —— pos/rot 可为 None(建模时已定位)。
+    返回 manifest 路径。手机: http://<主机IP>:8178/viewer.html?asm=<stem>.json"""
+    import shutil
+    os.makedirs(out_dir, exist_ok=True)
+    entries = []
+    for name, part_obj, pos, rot, color in parts:
+        fn = stem + '_' + name + '.stl'
+        tp = os.path.join(out_dir, fn)
+        if all(ord(c) < 128 for c in tp):
+            export_stl(part_obj, tp, tolerance=stl_tolerance)
+        else:  # 中文路径护栏(同 export_both)
+            import tempfile
+            fd, tmp = tempfile.mkstemp(suffix='.stl'); os.close(fd)
+            try:
+                if not export_stl(part_obj, tmp, tolerance=stl_tolerance):
+                    raise BuilderError('export_stl failed: %s' % tmp)
+                shutil.move(tmp, tp)
+            finally:
+                if os.path.exists(tmp): os.remove(tmp)
+        e = {'name': name, 'file': fn}
+        if pos: e['pos'] = list(pos)
+        if rot: e['rot'] = list(rot)
+        if color: e['color'] = color
+        entries.append(e)
+    manifest = {'name': stem, 'parts': entries}
+    mp = os.path.join(out_dir, stem + '.json')
+    with open(mp, 'w', encoding='utf-8') as fh:
+        json.dump(manifest, fh, ensure_ascii=False, indent=1)
+    vd = os.environ.get('CAE_VIEW3D_MODELS', r'D:\view3d\models')
+    try:
+        os.makedirs(vd, exist_ok=True)
+        for e in entries:
+            shutil.copy(os.path.join(out_dir, e['file']), os.path.join(vd, e['file']))
+        shutil.copy(mp, os.path.join(vd, stem + '.json'))
+        print('  [view3d] 手机查看装配: http://<主机IP>:8178/viewer.html?asm=%s.json' % stem)
+    except Exception as ex:
+        print('  [view3d] 拷贝跳过: %s' % ex)
+    return mp
