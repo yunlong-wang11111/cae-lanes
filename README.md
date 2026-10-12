@@ -24,6 +24,7 @@ cae_lanes.comsol / comsol3d / abaqus / creo      ← guardrails inside
 | `comsol3d` | 3D straight/stepped ducts, `EvalGlobal` result extraction, STL geometry import | `run("wp1")` before Extrude, `dom3d` assertion, `java_import_geom()` (STL works without the CAD Import module) |
 | `abaqus` | gen → run → extract → analyze command building | rc-is-not-truth log judging, py2.7 `flush=`/non-GBK static checks, disk quota guard |
 | `creo` | creoson REST client: open / set-dims / regenerate / mass-props / export STEP+PDF, plus OTK tools | 31-char name check, filename/dirname split, headless `-g:no_graphics` (zero popups), `otk-api` signature lookup without javap, `kill` for the jar-lock zombie loop |
+| `builder` | build123d/OCCT parametric modeling: boxes-between, side holes, counter-bores, slot arrays, volume assertions, STEP+STL dual export | `export_stl` **silently fails on non-ASCII paths** (returns False, no file) — handled via ASCII temp + rename |
 
 ## Quick start
 
