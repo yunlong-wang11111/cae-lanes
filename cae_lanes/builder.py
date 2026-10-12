@@ -80,10 +80,12 @@ def volume_assert(part, expect, rel_tol=1e-3, label=''):
     return v
 
 
-def export_both(part, out_dir, stem, stl_tolerance=0.05):
+def export_both(part, out_dir, stem, stl_tolerance=0.05, view3d=True):
     """STEP(加工/Abaqus) + STL(COMSOL 免费导入) 双导出。返回 {'.step': bytes, '.stl': bytes}。
     ★ 坑护栏(实测 build123d 0.13/OCCT): export_stl 遇非 ASCII 路径**静默返回 False 不写文件**
-    (export_step 不受影响) —— STL 先写 ASCII 临时路径再 os.rename 回目标( rename 支持中文)。"""
+    (export_step 不受影响) —— STL 先写 ASCII 临时路径再 os.replace 回目标( rename 支持中文)。
+    view3d=True 时顺手把 STL 拷进 view3d 查看服务的模型目录(D:\\view3d\\models)并打印手机
+    可访问链接(服务需在跑: D:\\view3d\\view3d-server.py, 端口 8178)——AI 建完把链接发给用户即可。"""
     os.makedirs(out_dir, exist_ok=True)
     sp = os.path.join(out_dir, stem + '.step')
     tp = os.path.join(out_dir, stem + '.stl')
@@ -103,6 +105,16 @@ def export_both(part, out_dir, stem, stl_tolerance=0.05):
         finally:
             if os.path.exists(tmp):
                 os.remove(tmp)
+    if view3d:
+        import shutil
+        vd = os.environ.get('CAE_VIEW3D_MODELS', r'D:\view3d\models')
+        try:
+            os.makedirs(vd, exist_ok=True)
+            shutil.copy(tp, os.path.join(vd, stem + '.stl'))
+            print('  [view3d] 手机查看: http://<主机IP>:8178/viewer.html?part=%s.stl '
+                  '（首页 http://<主机IP>:8178/ 可选全部模型）' % stem)
+        except Exception as e:
+            print('  [view3d] 拷贝跳过: %s' % e)
     return {'.step': os.path.getsize(sp), '.stl': os.path.getsize(tp)}
 
 
