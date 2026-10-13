@@ -111,6 +111,8 @@ def export_both(part, out_dir, stem, stl_tolerance=0.05, view3d=True):
         try:
             os.makedirs(vd, exist_ok=True)
             shutil.copy(tp, os.path.join(vd, stem + '.stl'))
+            if os.path.exists(sp):
+                shutil.copy(sp, os.path.join(vd, stem + '.step'))  # 源文件真几何: 查看器路径条优先/可下载
             print('  [view3d] 手机查看: http://<主机IP>:8178/viewer.html?part=%s.stl '
                   '（首页 http://<主机IP>:8178/ 可选全部模型）' % stem)
         except Exception as e:
