@@ -8,3 +8,4 @@
 from .comsol import Comsol2D, ComsolResult, ComsolError, k_comsol, read_comsol_csv  # noqa: F401
 from .comsol3d import Comsol3D, Comsol3DResult  # noqa: F401
 from .abaqus import AbaqusBatch, AbaqusLibError, RunSpec  # noqa: F401
+from .view3d import drop, status, clean, service_up, viewer_url, View3dError  # noqa: F401

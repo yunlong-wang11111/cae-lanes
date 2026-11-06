@@ -31,3 +31,17 @@ CREO_COMMON = os.path.join(CREO_ROOT, 'Common Files')
 CREO_OTK_JAR = os.path.join(CREO_COMMON, 'text', 'java', 'otk.jar')
 CREOSON_DIR = _p('CAE_CREOSON_DIR', os.path.join(os.path.expanduser('~'), 'dsh-plugins', 'creoson'))
 CREOSON_PORT = int(_p('CAE_CREOSON_PORT', '9056'))
+
+# ── view3d（手机 3D 查看器投递链路） ─────────────────────
+VIEW3D_ROOT = _p('CAE_VIEW3D_ROOT', r'D:\view3d')   # view3d-server.py 根目录
+VIEW3D_PORT = int(_p('CAE_VIEW3D_PORT', '8178'))
+
+# ── PanaParaMesher（并行四面体网格细化, parallel_tetmesh） ─
+# 安装记录见 D:\parallel_tetmesh\parallel_tetmesh\BUILD_NOTES.md
+PANA_ROOT = _p('CAE_PANA_ROOT', r'D:\parallel_tetmesh\parallel_tetmesh')
+PANA_BIN = os.path.join(PANA_ROOT, 'sdk', 'win64', '2017', 'Release')
+PANA_EXE = os.path.join(PANA_BIN, 'PanaPara.exe')
+PANA_READ_EXE = os.path.join(PANA_BIN, 'ResultRead.exe')
+PANA_MPIEXEC = _p('CAE_PANA_MPIEXEC', 'mpiexec')   # 须在 PATH(MS-MPI)
+# 工作根必须 ASCII：PanaPara 内部窄字符路径, 中文路径会 mojibake
+PANA_WORK_ROOT = _p('CAE_PANA_WORK', r'D:\panamesh')

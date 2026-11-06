@@ -14,6 +14,8 @@ tools:
   abaqus_disk       运行根磁盘护栏
   abaqus_cmd        四段式命令构建(gen/run/extract/analyze)
   judge_log         按日志文本判定(rc 不可信纪律)
+  mesh_refine       PanaPara 并行四面体网格细化(plan/run/convert, 2026-10-25)
+  mesh_check        .inp 节点/单元计数与 ×8^n 核对
 """
 import json
 import os
@@ -164,6 +166,73 @@ TOOLS = [
             'required': ['stage']},
     },
     {
+        'name': 'view3d_drop',
+        'description': '投递仿真产物到手机 3D 查看器（复制进 view3d/inbox, autodrop 自动转换, '
+                       '手机刷新即看）。支持: .odb→动画包(分钟级, abaqus 后台导出) / .stp/.step→stl / '
+                       '.vtk/.vtu 同名_N 序列→动画包(COMSOL 多时间步) / .bdf/.nas→stl / '
+                       '.stl/.ply/.glb 直入。path 支持 glob 通配(序列传 demo_*.vtk)与目录; '
+                       'alias 仅单文件时换名。在线执行(本地复制秒级); 服务须在跑(8178), '
+                       'odb 类投完用 view3d_list 查进度。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'path': {'type': 'string', 'description': '源文件/glob/目录 绝对路径'},
+            'alias': {'type': 'string', 'description': '入库显示名(含扩展名, 仅单文件)'}},
+            'required': ['path']},
+    },
+    {
+        'name': 'view3d_list',
+        'description': '查看器全景: 在途转换(inbox 未转出, 含 vtk 序列分组与帧数) / '
+                       '已入库模型(大小/是否动画包/溯源源文件) / autodrop 最近失败。'
+                       '返回手机访问 URL。pattern 对模型名做包含过滤。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'pattern': {'type': 'string', 'default': ''}},
+            'required': []},
+    },
+    {
+        'name': 'view3d_clean',
+        'description': '删除查看器条目: models 产物 + inbox 源 + 溯源记录一起删 '
+                       '（只删一边 autodrop 会重新转出来）。confirm=false 干跑列清单, '
+                       'true 执行。name 给 models 里的产物名或源文件 stem。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'name': {'type': 'string'},
+            'confirm': {'type': 'boolean', 'default': False}},
+            'required': ['name']},
+    },
+    {
+        'name': 'mesh_refine',
+        'description': 'PanaParaMesher 并行四面体网格细化(parallel_tetmesh, 大连理工 LGPL): '
+                       '粗网格 .inp → METIS 分区 + MS-MPI 并行 h-refinement(每级单元×8) → '
+                       '分区 .inp(界面节点已同步, 无需合并)。粗网格用 HyperMesh/Gmsh/Patran 等导出。'
+                       'mode=plan(默认): 校验+估规模+写 ctrl.json, 返回 quest_run 命令(重活转派); '
+                       'mode=run: 小网格(输出≤200万单元)在线直跑含转换与校验; '
+                       'mode=convert: quest 跑完后把分区二进制(*_rst_.refined_json)转可视化 part<i>.inp。'
+                       '工作区强制 ASCII(默认 D:/panamesh/<stem>/), 中文路径源文件自动拷入。'
+                       'numSubdivision 每加 1 单元×8; 64GB 单机建议输出≤1.5亿。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'inp_file': {'type': 'string', 'description': '粗网格 .inp 绝对路径(C3D4 四面体)'},
+            'mode': {'type': 'string', 'enum': ['plan', 'run', 'convert'], 'default': 'plan'},
+            'out_dir': {'type': 'string', 'description': '工作区(ASCII); 缺省 D:/panamesh/<stem>/'},
+            'num_subdivision': {'type': 'integer', 'default': 1, 'description': '细化级数, 单元×8^n'},
+            'num_partition': {'type': 'integer', 'description': '分区数(≥numCore, 多分区降内存峰值)'},
+            'num_core': {'type': 'integer', 'description': 'MPI 进程数; 缺省 min(8, cpu/2)'},
+            'num_smooth': {'type': 'integer', 'default': 0, 'description': '光顺迭代次数'},
+            'par_metis': {'type': 'integer', 'default': 0, 'description': '1=ParMETIS 并行分区(大规模)'},
+            'output_int_type': {'type': 'integer', 'default': 0,
+                                'description': '0=全局唯一节点ID(可视化友好); 1=分区局部ID(超大规模)'},
+            'export_inp': {'type': 'integer', 'default': 1}},
+            'required': ['inp_file']},
+    },
+    {
+        'name': 'mesh_check',
+        'description': '.inp 网格计数: 数 *NODE/*ELEMENT 行, 支持单文件/目录/glob 通配'
+                       '(part*.inp 分区序列)。可选 expect_elements 对总量核对(±5%)——'
+                       '细化后名义总量 = 粗网格单元数 × 8^numSubdivision。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'paths': {'type': 'array', 'items': {'type': 'string'},
+                      'description': '.inp 路径或 glob 列表'},
+            'expect_elements': {'type': 'integer'}},
+            'required': ['paths']},
+    },
+    {
         'name': 'judge_log',
         'description': '按日志文本判定成功/失败(abaqus rc 不可信纪律): 命中关键词=ok; '
                        '出现 Abaqus Error/Traceback/getWMI=failed; 其余 unknown。',
@@ -171,6 +240,34 @@ TOOLS = [
             'text': {'type': 'string'},
             'keywords': {'type': 'array', 'items': {'type': 'string'}}},
             'required': ['text', 'keywords']},
+    },
+    {
+        'name': 'tikz_flow',
+        'description': '科研流程图(TikZ 学术印刷风): 论文场景首选——与 pdflatex/xelatex 正文同字体同排版。'
+                       '调用方只描述结构(节点+边), 样式库模板承担全部审美(低饱和配色/衬线/圆角/回环虚线)。'
+                       '竖排主链+回环/越级侧绕自动布局; 产出 tex+pdf(+png)。'
+                       '流程图禁用 matplotlib 裸画(无设计系统必丑); 快图/讨论可走 mermaid, 精图走 HTML 截图。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'nodes': {'type': 'array', 'description': '按主链顺序; 每项 {id:ASCII标识符, kind:data|model|proc|gate|done, title, desc?}',
+                      'items': {'type': 'object'}},
+            'edges': {'type': 'array', 'description': '每项 {from, to, label?, style?:flow|back|skip}; 相邻=直箭头, to在前=回环虚线, 越级=侧绕',
+                      'items': {'type': 'object'}},
+            'out_dir': {'type': 'string', 'description': '产物目录(绝对路径)'},
+            'name': {'type': 'string', 'default': 'flow', 'description': '产物文件名 stem'}},
+            'required': ['nodes', 'edges', 'out_dir']},
+    },
+    {
+        'name': 'render_mermaid',
+        'description': 'mermaid 源码直接渲染成 PNG(快图/结构讨论链): 本地 mermaid.min.js + '
+                       'playwright(系统 Edge, CDP 通道, 不受 Edge 常驻进程劫持) + 按 svg 内容自适应截图(无白边)。'
+                       '语法字符要转义: |R| 写 &#124;R&#124;(竖线是 mermaid 语法字符); '
+                       '配色用源码内 classDef, 本工具不再改样式。宽度按内容自适应, width/height 只是画布上限。',
+        'inputSchema': {'type': 'object', 'properties': {
+            'code': {'type': 'string', 'description': 'mermaid 源码(flowchart/sequence/... 任意图型)'},
+            'out_png': {'type': 'string', 'description': '输出 PNG 绝对路径'},
+            'width': {'type': 'integer', 'default': 1600},
+            'height': {'type': 'integer', 'default': 1000}},
+            'required': ['code', 'out_png']},
     },
 ]
 
@@ -298,10 +395,57 @@ def handle_tool_call(name, args):
         d = dict(spec)
         d['quest_hint'] = spec.quest_hint
         return json.dumps(d, ensure_ascii=False, indent=2)
+    if name == 'view3d_drop':
+        from view3d import drop
+        return json.dumps(drop(args['path'], args.get('alias')),
+                          ensure_ascii=False, indent=2)
+    if name == 'view3d_list':
+        from view3d import status
+        return json.dumps(status(args.get('pattern') or None),
+                          ensure_ascii=False, indent=2)
+    if name == 'view3d_clean':
+        from view3d import clean
+        return json.dumps(clean(args['name'], bool(args.get('confirm', False))),
+                          ensure_ascii=False, indent=2)
+    if name == 'mesh_refine':
+        from panamesh import plan_refine, run_refine, convert_results
+        mode = str(args.get('mode', 'plan'))
+        if mode == 'convert':
+            parts = convert_results(args['out_dir'])
+            return json.dumps({'ok': True, 'output_dir': args['out_dir'],
+                               'partitions': len(parts),
+                               'total_elements': sum(p['elements'] for p in parts),
+                               'total_nodes': sum(p['nodes'] for p in parts),
+                               'per_partition': parts},
+                              ensure_ascii=False, indent=2)
+        fn = run_refine if mode == 'run' else plan_refine
+        r = fn(args['inp_file'], args.get('out_dir'),
+               num_subdivision=int(args.get('num_subdivision', 1)),
+               num_partition=args.get('num_partition'),
+               num_core=args.get('num_core'),
+               num_smooth=int(args.get('num_smooth', 0)),
+               par_metis=int(args.get('par_metis', 0)),
+               output_int_type=int(args.get('output_int_type', 0)),
+               export_inp=int(args.get('export_inp', 1)))
+        return json.dumps(r, ensure_ascii=False, indent=2)
+    if name == 'mesh_check':
+        from panamesh import check
+        return json.dumps(check(args['paths'], args.get('expect_elements')),
+                          ensure_ascii=False, indent=2)
     if name == 'judge_log':
         from abaqus import AbaqusBatch
         v, found = AbaqusBatch.judge_log(args['text'], args['keywords'])
         return 'verdict=%s keywords_found=%s' % (v, found or [])
+    if name == 'tikz_flow':
+        from flow_tikz import build_flow
+        r = build_flow(args['nodes'], args['edges'], args['out_dir'],
+                       args.get('name', 'flow'))
+        return 'FLOW-OK ' + json.dumps(r, ensure_ascii=False)
+    if name == 'render_mermaid':
+        from mermaid_render import render_png
+        p = render_png(args['code'], args['out_png'],
+                       int(args.get('width', 1600)), int(args.get('height', 1000)))
+        return 'MERMAID-PNG-OK %s' % p
     raise ValueError('unknown tool: %s' % name)
 
 

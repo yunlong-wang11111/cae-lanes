@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .DS_Store
 demo_out/
+cae_lanes/assets/edge-profile/

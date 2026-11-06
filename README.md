@@ -41,7 +41,7 @@ Every CLI ends with an ASCII judge keyword (`CREO-SMOKE-DONE`, `SIMLIB_*_DONE`, 
 
 ## MCP server (stdio, zero dependencies)
 
-`cae_lanes/mcp_server.py` exposes 12 tools (`comsol_k`, `comsol_eval_snippet`, `comsol_health`, `creo_cmd`, `creo_status`, `abaqus_cmd`, `judge_log`, ...). Heavy jobs are never executed in-process — the tools **build the command + judge keyword** and hand it to your job queue.
+`cae_lanes/mcp_server.py` exposes 15 tools (`comsol_k`, `comsol_eval_snippet`, `comsol_health`, `creo_cmd`, `creo_status`, `abaqus_cmd`, `judge_log`, `view3d_drop`, `view3d_list`, `view3d_clean`, ...). Heavy jobs are never executed in-process — the tools **build the command + judge keyword** and hand it to your job queue. The `view3d_*` tools are the exception: they only copy files into a watched inbox (`D:\view3d\inbox` by default, override with `CAE_VIEW3D_ROOT`) and report status, so any AI session can push simulation results to a phone-viewable 3D viewer (`.odb` → playable animation pack, `.stp/.step` → STL, `.vtk/.vtu` frame sequences → animation, `.bdf/.nas` → STL mesh).
 
 ```json
 { "mcpServers": { "cae-lanes": { "command": "python", "args": ["cae_lanes/mcp_server.py"] } } }
